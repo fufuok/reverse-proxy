@@ -1,6 +1,7 @@
 package rproxy
 
 import (
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/httputil"
@@ -56,16 +57,25 @@ func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	// 解决反代 HTTPS 时 x509: cannot validate certificate
+	proxy.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	// 替换请求主机头
 	director := proxy.Director
 	proxy.Director = func(r *http.Request) {
 		director(r)
-		// 替换请求 Host
 		r.Host = p.Host
 		if r.Host == "" {
 			r.Host = target.Host
 		}
 		r.Header.Set(TargetHostHeader, target.String())
 	}
+
 	proxy.ModifyResponse = p.ModifyResponse
 	proxy.ErrorHandler = p.ErrorHandler
 	proxy.ServeHTTP(rw, req)

@@ -1,4 +1,4 @@
-# HTTP Reverse Proxy (HTTP 反向代理)
+# HTTP Reverse Proxy (HTTP/HTTPS 反向代理)
 
 ## 特征
 
@@ -110,9 +110,22 @@ COPYRIGHT:
 
 4. 可以指定请求主机头, 一般转发到 IP 时都最好指定 Host 参数
 
-   `./rproxy -debug -F=http://1.1.1.1 -F=http://2.2.2.2 -host=yousitedomain.com`
+   **注意: 非 80/443 端口时, 主机头需要加上端口:**
 
-   **注意: 非 80/443 端口时, 主机头需要加上端口, 如: orign.fufuok.com:9001**
+   `./rproxy -debug -F=http://1.1.1.1 -F=http://2.2.2.2 -host=orign.fufuok.com:9001`
+
+   指定 Host 反代 HTTPS 示例:
+
+   ```shell
+   ./rproxy -debug -F=https://14.215.177.39,3 -F=https://14.215.177.38,2 -F=https://220.181.38.150 -host=www.baidu.com
+   0907 23:40:22 INF > 监听:=[":7777"] 反向代理服务已启动
+   0907 23:40:22 INF > 后端:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 转发到后端服务地址
+   0907 23:40:22 INF > Host:="www.baidu.com" 请求时替换主机头
+   0907 23:40:24 INF > client_ip="127.0.0.1:55976" request_uri="/sugrec?..." proxy_pass="https://14.215.177.39" 200 OK
+   0907 23:40:25 INF > client_ip="127.0.0.1:55976" request_uri="/s?ie=utf-8&mod=1..." proxy_pass="https://14.215.177.38" 302 Found
+   0907 23:40:25 INF > client_ip="127.0.0.1:55976" request_uri="/s?ie=utf-8..." proxy_pass="https://14.215.177.39" 200 OK
+   0907 23:40:26 INF > client_ip="127.0.0.1:55976" request_uri="/sugrec?..." proxy_pass="https://220.181.38.150" 200 OK
+   ```
 
 5. 也可以同时监听多个本地端口, 即多个 `-L=:nnn`
 
