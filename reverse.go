@@ -73,7 +73,7 @@ func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if r.Host == "" {
 			r.Host = target.Host
 		}
-		r.Header.Set(TargetHostHeader, target.String())
+		r.Header.Set(ProxyPassHeader, target.String())
 	}
 
 	proxy.ModifyResponse = p.ModifyResponse
@@ -92,13 +92,14 @@ func (p *tReverseProxy) balancer() (backend *url.URL) {
 }
 
 func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
+	target := r.Request.Header.Get(ProxyPassHeader)
 	if conf.Debug {
-		r.Header.Set("Debug", APPName)
+		r.Header.Set(ProxyPassHeader, target)
 	}
 	log.Info().
 		Str("client_ip", r.Request.RemoteAddr).
 		Str("request_uri", r.Request.RequestURI).
-		Str("proxy_pass", r.Request.Header.Get(TargetHostHeader)).
+		Str("proxy_pass", target).
 		Msg(r.Status)
 	return nil
 }

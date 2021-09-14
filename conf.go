@@ -10,8 +10,8 @@ const (
 	// APPName 应用名称, 用于日志文件名
 	APPName = "rproxy"
 
-	// TargetHostHeader 请求头记录请求的后端地址, 用于日志
-	TargetHostHeader = "P-T-H"
+	// ProxyPassHeader 头信息记录请求的后端地址, 用于调试和日志
+	ProxyPassHeader = "X-Proxy-Pass"
 )
 
 var (
