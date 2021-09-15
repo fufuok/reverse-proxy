@@ -1,6 +1,7 @@
 package rproxy
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
@@ -119,6 +120,11 @@ func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
 }
 
 func (p *tReverseProxy) defaultErrorHandler(rw http.ResponseWriter, _ *http.Request, err error) {
+	// connection unexpectedly closed by client
+	if err == context.Canceled {
+		return
+	}
+
 	log.Error().Err(err).Msg("502 Bad Gateway")
 	rw.WriteHeader(http.StatusBadGateway)
 }
