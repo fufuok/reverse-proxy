@@ -9,6 +9,20 @@
 
 ## 使用
 
+目录:
+
+```
+.
+├── bin
+│   └── rproxy
+├── log
+│   ├── rproxy.2021-09-15T12-00-00.log
+│   ├── rproxy.daemon.log
+│   └── rproxy.log -> rproxy.2021-09-15T12-00-00.log
+```
+
+运行:
+
 `bin\rproxy.exe -h`
 
 `./bin/rproxy -h`
@@ -87,7 +101,7 @@ COPYRIGHT:
    **1.100** 控制台日志:
 
    ```shell
-0915 09:57:31 INF > client_ip="192.168.1.13:48052" method="GET" host="www.baidu.com" uri="/s?ie=utf-8&wd=golang" proxy_pass="https://www.baidu.com" 200 OK
+   0915 09:57:31 INF > client_ip="192.168.1.13:48052" method="GET" host="www.baidu.com" uri="/s?ie=utf-8&wd=golang" proxy_pass="https://www.baidu.com" 200 OK
    0915 09:57:34 INF > client_ip="192.168.1.13:48054" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
    0915 09:57:35 INF > client_ip="192.168.1.13:48056" method="GET" host="www.baidu.com" uri="/favicon.ico" proxy_pass="https://www.baidu.com" 200 OK
    ```
@@ -107,7 +121,7 @@ COPYRIGHT:
       0915 09:59:43 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/s?ie=utf-8&wd=fufuok" proxy_pass="http://192.168.1.100:7777" 200 OK
       0915 09:59:45 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.13:555" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.13:555" 200 OK
       0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/" proxy_pass="http://192.168.1.100:7777" 200 OK
-   0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.100:7777" 200 OK
+      0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.100:7777" 200 OK
       0915 10:00:36 INF > client_ip="127.0.0.1:59369" method="GET" host="192.168.1.100:7777" uri="/content-search.xml" proxy_pass="http://192.168.1.100:7777" 200 OK
       ```
       
