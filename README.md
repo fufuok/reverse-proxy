@@ -34,8 +34,8 @@ COMMANDS:
 GLOBAL OPTIONS:
    --debug               调试模式, 控制台输出日志 (default: false)
    --loglevel value      文件日志级别: debug, info, warn, error, fatal, panic (default: "info")
-   --logfile value       日志文件位置 (default: "/mnt/e/Go/src/github.com/fufuok/reverse-proxy/log/rproxy.log")
-   --errorlogfile value  错误级别的日志文件位置 (default: "/mnt/e/Go/src/github.com/fufuok/reverse-proxy/log/rproxy.error.log")
+   --logfile value       日志文件位置 (default: "程序位置/../log/rproxy.log")
+   --errorlogfile value  错误级别的日志文件位置 (default: "程序位置/../log/rproxy.log")
    --host value          指定请求主机头, 非80/443时带上端口, -host=fufuok.com:999
    --cert value          指定 HTTPS 服务端证书文件, 为空时使用内置证书
    --key value           指定 HTTPS 服务端私钥文件, 为空时使用内置私钥
@@ -66,8 +66,9 @@ COPYRIGHT:
    0915 09:52:15 INF > client_ip="127.0.0.1:64874" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
    ```
    
+
 **注意: 转发目标服务是域名时, 域名解析的结果不要是自身 IP, 可能造成循环转发**
-   
+
 2. 可以多级转发, 假如上面的机器 IP 是 `192.168.1.100`, 现在这台是 `192.168.1.13`
 
    `./rproxy -debug -L=:555 -F=http://192.168.1.100:7777`
