@@ -81,9 +81,21 @@ func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	proxy.ServeHTTP(rw, req)
 }
 
-// ListenAndServe 启动代理, 监听本地端口
+// ListenAndServe 启动代理, 监听本地端口, HTTP
 func (p *tReverseProxy) ListenAndServe(laddr string) error {
 	return http.ListenAndServe(laddr, p)
+}
+
+// ListenAndServeTLS 启动代理, 监听本地端口, HTTPS
+func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) error {
+	s := &http.Server{
+		Addr:    laddr,
+		Handler: p,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cf},
+		},
+	}
+	return s.ListenAndServeTLS("", "")
 }
 
 // 平滑加权轮询
@@ -98,7 +110,9 @@ func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
 	}
 	log.Info().
 		Str("client_ip", r.Request.RemoteAddr).
-		Str("request_uri", r.Request.RequestURI).
+		Str("method", r.Request.Method).
+		Str("host", r.Request.Host).
+		Str("uri", r.Request.RequestURI).
 		Str("proxy_pass", target).
 		Msg(r.Status)
 	return nil
@@ -116,15 +130,21 @@ func Start() {
 	rproxy, _ := NewReverseProxy(conf.Backend)
 	rproxy.Host = conf.Host
 
-	for _, laddr := range conf.Listen {
+	for _, l := range conf.Listen {
 		wg.Add(1)
-		go func(l string) {
+		go func(l *url.URL) {
 			defer wg.Done()
-			log.Fatal().Err(rproxy.ListenAndServe(l)).Msg("代理服务监听失败\nbye.")
-		}(laddr)
+			var err error
+			if l.Scheme == "https" {
+				err = rproxy.ListenAndServeTLS(l.Host, conf.Certificate)
+			} else {
+				err = rproxy.ListenAndServe(l.Host)
+			}
+			log.Fatal().Err(err).Msg("代理服务监听失败\nbye.")
+		}(l)
 	}
 
-	log.Info().Strs("监听:", conf.Listen).Msg("反向代理服务已启动")
+	log.Info().Strs("监听:", conf.LAddr).Msg("反向代理服务已启动")
 	log.Info().Strs("后端:", conf.Forward).Msg("转发到后端服务地址")
 	if conf.Host != "" {
 		log.Info().Str("Host:", conf.Host).Msg("请求时替换主机头")

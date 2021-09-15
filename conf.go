@@ -1,6 +1,8 @@
 package rproxy
 
 import (
+	"crypto/tls"
+	"net/url"
 	"path/filepath"
 
 	"github.com/fufuok/utils"
@@ -33,9 +35,11 @@ type TConfig struct {
 	LogFile      string
 	ErrorLogFile string
 	Host         string
-	Listen       []string
+	Listen       []*url.URL
+	LAddr        []string
 	Forward      []string
 	Backend      []*utils.TChoice
+	Certificate  tls.Certificate
 }
 
 func InitMain(c *TConfig) {
