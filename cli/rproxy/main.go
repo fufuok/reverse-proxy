@@ -16,6 +16,9 @@ import (
 )
 
 var (
+	version = "v0.0.3.21092717"
+
+	// 全局配置项
 	conf = &rproxy.TConfig{}
 
 	//go:embed server.crt
@@ -29,9 +32,9 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "HTTP(s) Reverse Proxy"
 	app.Usage = "HTTP/HTTPS 反向代理"
-	app.UsageText = "- 支持同时监听 HTTP/HTTPS, 指定或使用默认证书\n   - 支持后端服务平滑加权轮询\n   - 示例: " +
-		"./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn"
-	app.Version = "v0.0.2.21091515"
+	app.UsageText = "- 支持同时监听 HTTP/HTTPS, 指定或使用默认证书\n   - 支持后端服务负载均衡\n   - 示例: " +
+		"./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2"
+	app.Version = version
 	app.Copyright = "https://github.com/fufuok/reverse-proxy"
 	app.Authors = []*cli.Author{
 		{
@@ -76,15 +79,20 @@ func main() {
 			Name:  "key",
 			Usage: "指定 HTTPS 服务端私钥文件, 为空时使用内置私钥",
 		},
-		&cli.StringSliceFlag{
-			Name:     "L",
-			Value:    cli.NewStringSlice(":7777"),
-			Usage:    "本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555",
-			Required: true,
+		&cli.IntFlag{
+			Name:        "lb",
+			Usage:       "负载均衡算法: 0 加权轮询(默认), 1 平滑加权轮询, 2 IP哈希, 3 轮询, 4 随机",
+			Destination: &conf.LBMode,
 		},
 		&cli.StringSliceFlag{
 			Name:     "F",
 			Usage:    "后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8",
+			Required: true,
+		},
+		&cli.StringSliceFlag{
+			Name:     "L",
+			Value:    cli.NewStringSlice(":7777"),
+			Usage:    "本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555",
 			Required: true,
 		},
 	}
@@ -98,8 +106,8 @@ func main() {
 			log.Fatalln("本地监听端口号有误\nbye.")
 		}
 
-		conf.Backend, conf.Forward = parseSWRR(c.StringSlice("F"))
-		if len(conf.Backend) == 0 {
+		conf.BackendMap, conf.BackendList, conf.Backend = parseBackend(c.StringSlice("F"))
+		if len(conf.BackendList) == 0 {
 			_ = cli.ShowAppHelp(c)
 			log.Fatalln("转发到后端服务地址列表有误\nbye.")
 		}
@@ -167,8 +175,10 @@ func parseListenAddr(ss []string) (listen []*url.URL, laddr []string) {
 	return
 }
 
-// 解析平滑加权轮询结构体
-func parseSWRR(ss []string) (swrr []*utils.TChoice, res []string) {
+// 解析转发的后端服务地址
+func parseBackend(ss []string) (bMap map[string]int, bList []string, backend map[string]*url.URL) {
+	bMap = make(map[string]int)
+	backend = make(map[string]*url.URL)
 	for _, s := range ss {
 		x := strings.SplitN(s, ",", 2)
 		svr := strings.TrimSpace(x[0])
@@ -182,11 +192,10 @@ func parseSWRR(ss []string) (swrr []*utils.TChoice, res []string) {
 		}
 
 		if u, err := url.Parse(svr); err == nil && u.Host != "" {
-			swrr = append(swrr, &utils.TChoice{
-				Item:   u,
-				Weight: w,
-			})
-			res = append(res, u.String())
+			k := u.String()
+			bMap[k] = w
+			bList = append(bList, k)
+			backend[k] = u
 		}
 	}
 	return

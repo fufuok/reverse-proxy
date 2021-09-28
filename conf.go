@@ -8,14 +8,6 @@ import (
 	"github.com/fufuok/utils"
 )
 
-const (
-	// APPName 应用名称, 用于日志文件名
-	APPName = "rproxy"
-
-	// ProxyPassHeader 头信息记录请求的后端地址, 用于调试和日志
-	ProxyPassHeader = "X-Proxy-Pass"
-)
-
 var (
 	// RootPath 运行绝对路径
 	RootPath = utils.ExecutableDir(true)
@@ -37,8 +29,10 @@ type TConfig struct {
 	Host         string
 	Listen       []*url.URL
 	LAddr        []string
-	Forward      []string
-	Backend      []*utils.TChoice
+	BackendList  []string
+	BackendMap   map[string]int
+	Backend      map[string]*url.URL
+	LBMode       int
 	Certificate  tls.Certificate
 }
 

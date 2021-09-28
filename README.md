@@ -3,9 +3,15 @@
 ## 特征
 
 - 支持多个本地监听(HTTP/HTTPS)和多个后端服务(HTTP/HTTPS)
-- 负载均衡: 平滑加权轮询
+- 支持指定负载均衡: 
+  - `-lb=0` `WeightedRoundRobin` 加权轮询(默认) 
+  - `-lb=1` `SmoothWeightedRoundRobin` 平滑加权轮询
+  - `-lb=2` `ConsistentHash` IP一致性哈希
+  - `-lb=3` `RoundRobin` 轮询
+  - `-lb=4` `Random` 随机
+  - [github.com/fufuok/balancer: Goroutine-safe, High-performance general load balancing algorithm library.](https://github.com/fufuok/balancer)
 - 支持指定请求主机头: `Host`
-- 需要 HTTPS 时可选指定证书和私钥, 不指定是使用内置证书
+- 需要 HTTPS 时可选指定证书和私钥, 不指定时使用内置证书
 
 ## 使用
 
@@ -33,11 +39,11 @@ NAME:
 
 USAGE:
    - 支持同时监听 HTTP/HTTPS, 指定或使用默认证书
-   - 支持后端服务平滑加权轮询
-   - 示例: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn
+   - 支持后端服务负载均衡
+   - 示例: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2
 
 VERSION:
-   v0.0.2.21091515
+   v0.0.3.21092717
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -49,12 +55,13 @@ GLOBAL OPTIONS:
    --debug               调试模式, 控制台输出日志 (default: false)
    --loglevel value      文件日志级别: debug, info, warn, error, fatal, panic (default: "info")
    --logfile value       日志文件位置 (default: "程序位置/../log/rproxy.log")
-   --errorlogfile value  错误级别的日志文件位置 (default: "程序位置/../log/rproxy.log")
+   --errorlogfile value  错误级别的日志文件位置 (default: "程序位置/../log/rproxy.error.log")
    --host value          指定请求主机头, 非80/443时带上端口, -host=fufuok.com:999
    --cert value          指定 HTTPS 服务端证书文件, 为空时使用内置证书
    --key value           指定 HTTPS 服务端私钥文件, 为空时使用内置私钥
-   -L value              本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555 (default: ":7777")
+   --lb value            负载均衡算法: 0 加权轮询(默认), 1 平滑加权轮询, 2 IP哈希, 3 轮询, 4 随机 (default: 0)
    -F value              后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8
+   -L value              本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555 (default: ":7777")
    --help, -h            show help (default: false)
    --version, -v         print the version (default: false)
 
@@ -74,8 +81,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -F=https://www.baidu.com
-   0915 09:51:56 INF > 监听:=["http://:7777"] 反向代理服务已启动
-   0915 09:51:56 INF > 后端:=["https://www.baidu.com"] 转发到后端服务地址
+   0915 09:51:56 INF > 反向代理已启动:=["http://:7777"] 
+   0915 09:51:56 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
    0915 09:52:12 INF > client_ip="127.0.0.1:64874" method="GET" host="www.baidu.com" uri="/s?ie=utf-8&wd=xunyou" proxy_pass="https://www.baidu.com" 200 OK
    0915 09:52:15 INF > client_ip="127.0.0.1:64874" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
    ```
@@ -116,8 +123,8 @@ COPYRIGHT:
       
       ```shell
       ./rproxy -debug -L=:888 -F=http://192.168.1.13:555 -F=http://192.168.1.100:7777,3
-      0915 09:59:29 INF > 监听:=["http://:888"] 反向代理服务已启动
-      0915 09:59:29 INF > 后端:=["http://192.168.1.13:555","http://192.168.1.100:7777"] 转发到后端服务地址
+      0915 09:59:29 INF > 反向代理已启动:=["http://:888"]
+      0915 09:59:29 INF > 转发到后端地址:=["http://192.168.1.13:555","http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin"
       0915 09:59:43 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/s?ie=utf-8&wd=fufuok" proxy_pass="http://192.168.1.100:7777" 200 OK
       0915 09:59:45 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.13:555" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.13:555" 200 OK
       0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/" proxy_pass="http://192.168.1.100:7777" 200 OK
@@ -136,8 +143,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -F=https://14.215.177.39,3 -F=https://14.215.177.38,2 -F=https://220.181.38.150 -host=www.baidu.com
-   0915 10:02:03 INF > 监听:=["http://:7777"] 反向代理服务已启动
-   0915 10:02:03 INF > 后端:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 转发到后端服务地址
+   0915 10:02:03 INF > 反向代理已启动:=["http://:7777"]
+   0915 10:02:03 INF > 转发到后端地址:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 负载均衡:="WeightedRoundRobin"
    0915 10:02:03 INF > Host:="www.baidu.com" 请求时替换主机头
    0915 10:02:27 INF > client_ip="127.0.0.1:59224" method="GET" host="www.baidu.com" uri="/" proxy_pass="https://14.215.177.39" 200 OK
    0915 10:02:27 INF > client_ip="127.0.0.1:59224" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://14.215.177.38" 200 OK
@@ -155,9 +162,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:7777 -L=https://:555 -F=https://www.baidu.com
-   0915 10:06:22 INF > 监听:=["http://:7777","https://:555"] 反向代理服务已启动
-   0915 10:06:22 INF > 后端:=["https://www.baidu.com"] 转发到后端服务地址
-   2021/09/15 10:06:44 http: TLS handshake error from 127.0.0.1:52488: remote error: tls: unknown certificate
+   0915 10:06:22 INF > 反向代理已启动:=["http://:7777","https://:555"]
+   0915 10:06:22 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
    0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/" proxy_pass="https://www.baidu.com" 200 OK
    0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
    0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/content-search.xml" proxy_pass="https://www.baidu.com" 200 OK
@@ -165,9 +171,18 @@ COPYRIGHT:
 
    浏览器访问 `https://127.0.0.1:555/` 就能打开百度, 控制台可以看到上面的日志
 
-   **注意: 内置证书为自签发证书, 不受浏览器信任, 可安装 [cert](cert) 中的 `ca.crt` 到系统受信的根证书颁发机构, 或安装到浏览器解决**
+   **注意: **
 
-7. 非调试模式时, 自动启动守护进程并后台运行, 日志记录到文件
+   - 内置证书为自签发证书, 不受浏览器信任, 可安装 [cert](cert) 中的 `ca.crt` 到系统受信的根证书颁发机构, 或安装到浏览器解决
+   - 测试网址写入 HOSTS `127.0.0.1 test.dev.ops`, 使用 `https://test.dev.ops:555` 即可打开百度, 浏览器显示绿锁证书
+
+7. 负载均衡默认为高性能平滑加权重轮询 (WRR)
+
+   可以用 `-lb=2` 来指定一致性哈希算法, 相同客户端 IP 的所有请求均会转发到同一后端服务
+
+   `./rproxy -debug -F=http://1.1.1.1:9001 -F=http://1.1.1.1:9002 -F=http://1.1.1.2 -host=ff.cn -lb=2`
+
+8. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
 
 
 

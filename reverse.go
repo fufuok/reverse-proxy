@@ -3,7 +3,6 @@ package rproxy
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -11,12 +10,12 @@ import (
 
 	"github.com/phuslu/log"
 
-	"github.com/fufuok/utils"
+	"github.com/fufuok/balancer"
 )
 
 type tReverseProxy struct {
-	// 转发到后端服务地址列表
-	backend []*utils.TChoice
+	// 后端服务负载均衡器
+	LB balancer.Balancer
 
 	// 修改返回值方法
 	ModifyResponse func(*http.Response) error
@@ -28,26 +27,16 @@ type tReverseProxy struct {
 	Host string
 }
 
-func NewReverseProxy(backend []*utils.TChoice) (proxy *tReverseProxy, err error) {
-	proxy = &tReverseProxy{}
-	err = proxy.SetForward(backend)
-	return
-}
-
-// SetForward 设置转发服务地址列表
-func (p *tReverseProxy) SetForward(backend []*utils.TChoice) error {
-	if len(backend) == 0 {
-		return errors.New("后端服务地址有误")
+func NewReverseProxy() (proxy *tReverseProxy) {
+	return &tReverseProxy{
+		LB: balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
 	}
-
-	p.backend = backend
-
-	return nil
 }
 
 func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// 后端服务负载均衡
-	target := p.balancer()
+	backend := p.LB.Select(req.RemoteAddr)
+	target := conf.Backend[backend]
 
 	if p.ModifyResponse == nil {
 		p.ModifyResponse = p.defaultModifyResponse
@@ -99,11 +88,6 @@ func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) erro
 	return s.ListenAndServeTLS("", "")
 }
 
-// 平滑加权轮询
-func (p *tReverseProxy) balancer() (backend *url.URL) {
-	return utils.SWRR(p.backend).Item.(*url.URL)
-}
-
 func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
 	target := r.Request.Header.Get(ProxyPassHeader)
 	if conf.Debug {
@@ -133,7 +117,7 @@ func (p *tReverseProxy) defaultErrorHandler(rw http.ResponseWriter, _ *http.Requ
 func Start() {
 	var wg sync.WaitGroup
 
-	rproxy, _ := NewReverseProxy(conf.Backend)
+	rproxy := NewReverseProxy()
 	rproxy.Host = conf.Host
 
 	for _, l := range conf.Listen {
@@ -150,10 +134,10 @@ func Start() {
 		}(l)
 	}
 
-	log.Info().Strs("监听:", conf.LAddr).Msg("反向代理服务已启动")
-	log.Info().Strs("后端:", conf.Forward).Msg("转发到后端服务地址")
+	log.Info().Strs("反向代理已启动:", conf.LAddr).Msg("")
+	log.Info().Strs("转发到后端地址:", conf.BackendList).Str("负载均衡:", rproxy.LB.Name()).Msg("")
 	if conf.Host != "" {
-		log.Info().Str("Host:", conf.Host).Msg("请求时替换主机头")
+		log.Info().Str("替换请求主机头:", conf.Host).Msg("")
 	}
 
 	wg.Wait()
