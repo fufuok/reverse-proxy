@@ -1,13 +1,28 @@
 package rproxy
 
 import (
+	"time"
+
 	"github.com/phuslu/log"
 )
 
 func initLogger() {
+	if conf.Debug {
+		log.DefaultLogger = log.Logger{
+			Level:      log.ParseLevel(conf.LogLevel),
+			TimeFormat: "0102 15:04:05",
+			Writer: &log.ConsoleWriter{
+				ColorOutput:    true,
+				QuoteString:    true,
+				EndWithMessage: true,
+			},
+		}
+		return
+	}
+
 	log.DefaultLogger = log.Logger{
 		Level:      log.ParseLevel(conf.LogLevel),
-		TimeFormat: "0102 15:04:05",
+		TimeFormat: time.RFC3339,
 		Writer: &log.MultiWriter{
 			InfoWriter: &log.FileWriter{
 				Filename:     conf.LogFile,
@@ -26,12 +41,5 @@ func initLogger() {
 				LocalTime:    true,
 			},
 		},
-	}
-	if conf.Debug {
-		log.DefaultLogger.Writer = &log.ConsoleWriter{
-			ColorOutput:    true,
-			QuoteString:    true,
-			EndWithMessage: true,
-		}
 	}
 }
