@@ -11,6 +11,10 @@
   - `-lb=4` `Random` 随机
   - [github.com/fufuok/balancer: Goroutine-safe, High-performance general load balancing algorithm library.](https://github.com/fufuok/balancer)
 - 支持指定请求主机头: `Host`
+- 支持按 IP 限流或全局限流:
+  - `-limitmode=1` 全局限流, 不分 IP, 默认为按 IP 分别限流
+  - `-limit=30` 限制每秒 30 个请求
+  - `-burst=50` 允许突发 50 个请求
 - 需要 HTTPS 时可选指定证书和私钥, 不指定时使用内置证书
 
 ## 使用
@@ -39,11 +43,11 @@ NAME:
 
 USAGE:
    - 支持同时监听 HTTP/HTTPS, 指定或使用默认证书
-   - 支持后端服务负载均衡
-   - 示例: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2
+   - 支持后端服务负载均衡和限速
+   - 示例: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50
 
 VERSION:
-   v0.0.3.21092717
+   v0.0.4.21100911
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -59,6 +63,9 @@ GLOBAL OPTIONS:
    --host value          指定请求主机头, 非80/443时带上端口, -host=fufuok.com:999
    --cert value          指定 HTTPS 服务端证书文件, 为空时使用内置证书
    --key value           指定 HTTPS 服务端私钥文件, 为空时使用内置私钥
+   --limitmode value     请求速率限制模式: 0 按请求 IP 限制(默认), 1 全局限制, 不分 IP (default: 0)
+   --limit value         限制每秒允许的请求数, 0 表示不限制(默认) (default: 0)
+   --burst value         允许的突发请求数, 如: -limit=30 -burst=50 (每秒 30 请求, 允许突发 50 请求) (default: 0)
    --lb value            负载均衡算法: 0 加权轮询(默认), 1 平滑加权轮询, 2 IP哈希, 3 轮询, 4 随机 (default: 0)
    -F value              后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8
    -L value              本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555 (default: ":7777")
@@ -182,7 +189,23 @@ COPYRIGHT:
 
    `./rproxy -debug -F=http://1.1.1.1:9001 -F=http://1.1.1.1:9002 -F=http://1.1.1.2 -host=ff.cn -lb=2`
 
-8. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
+8. 默认不限流转发, `-limit` `-burst` 都大于 0 时会启动限流
+
+   按请求 IP 限制每秒 10 个请求, 允许突发请求 20 个:
+
+   `./rproxy -debug -F=https://www.baidu.com -limit=10 -burst=20`
+
+   全局限流, 限制每秒 10000 个请求, 允许突发请求 15000 个:
+
+   `./rproxy -debug -F=https://www.baidu.com -limitmode=1 -limit=10000 -burst=15000`
+
+   ```shell
+   1009 11:11:19 INF > 反向代理已启动:=["http://:7777"] 
+   1009 11:11:19 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin" 
+   1009 11:11:19 INF > 限制每秒请求数:=10000 最大突发请求数:=15000 限流器:="GlobalRateLimiter" 
+   ```
+
+9. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
 
 
 

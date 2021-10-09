@@ -5,8 +5,6 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
-	"sync"
 
 	"github.com/phuslu/log"
 
@@ -29,13 +27,14 @@ type tReverseProxy struct {
 
 func NewReverseProxy() (proxy *tReverseProxy) {
 	return &tReverseProxy{
-		LB: balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
+		LB:   balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
+		Host: conf.Host,
 	}
 }
 
-func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (p *tReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 后端服务负载均衡
-	backend := p.LB.Select(req.RemoteAddr)
+	backend := p.LB.Select(r.RemoteAddr)
 	target := conf.Backend[backend]
 
 	if p.ModifyResponse == nil {
@@ -68,19 +67,19 @@ func (p *tReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	proxy.ModifyResponse = p.ModifyResponse
 	proxy.ErrorHandler = p.ErrorHandler
-	proxy.ServeHTTP(rw, req)
+	proxy.ServeHTTP(w, r)
 }
 
 // ListenAndServe 启动代理, 监听本地端口, HTTP
 func (p *tReverseProxy) ListenAndServe(laddr string) error {
-	return http.ListenAndServe(laddr, p)
+	return http.ListenAndServe(laddr, LimitMiddleware(p))
 }
 
 // ListenAndServeTLS 启动代理, 监听本地端口, HTTPS
 func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) error {
 	s := &http.Server{
 		Addr:    laddr,
-		Handler: p,
+		Handler: LimitMiddleware(p),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cf},
 		},
@@ -103,42 +102,12 @@ func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
 	return nil
 }
 
-func (p *tReverseProxy) defaultErrorHandler(rw http.ResponseWriter, _ *http.Request, err error) {
+func (p *tReverseProxy) defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 	// connection unexpectedly closed by client
 	if err == context.Canceled {
 		return
 	}
 
 	log.Error().Err(err).Msg("502 Bad Gateway")
-	rw.WriteHeader(http.StatusBadGateway)
-}
-
-// Start 开启代理服务
-func Start() {
-	var wg sync.WaitGroup
-
-	rproxy := NewReverseProxy()
-	rproxy.Host = conf.Host
-
-	for _, l := range conf.Listen {
-		wg.Add(1)
-		go func(l *url.URL) {
-			defer wg.Done()
-			var err error
-			if l.Scheme == "https" {
-				err = rproxy.ListenAndServeTLS(l.Host, conf.Certificate)
-			} else {
-				err = rproxy.ListenAndServe(l.Host)
-			}
-			log.Fatal().Err(err).Msg("代理服务监听失败\nbye.")
-		}(l)
-	}
-
-	log.Info().Strs("反向代理已启动:", conf.LAddr).Msg("")
-	log.Info().Strs("转发到后端地址:", conf.BackendList).Str("负载均衡:", rproxy.LB.Name()).Msg("")
-	if conf.Host != "" {
-		log.Info().Str("替换请求主机头:", conf.Host).Msg("")
-	}
-
-	wg.Wait()
+	w.WriteHeader(http.StatusBadGateway)
 }

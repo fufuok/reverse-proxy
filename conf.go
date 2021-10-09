@@ -26,14 +26,22 @@ type TConfig struct {
 	LogLevel     string
 	LogFile      string
 	ErrorLogFile string
-	Host         string
-	Listen       []*url.URL
-	LAddr        []string
-	BackendList  []string
-	BackendMap   map[string]int
-	Backend      map[string]*url.URL
-	LBMode       int
-	Certificate  tls.Certificate
+
+	Host string
+
+	Listen []*url.URL
+	LAddr  []string
+
+	BackendList []string
+	BackendMap  map[string]int
+	Backend     map[string]*url.URL
+	LBMode      int
+
+	Certificate tls.Certificate
+
+	LimitMode int
+	Limit     int
+	Burst     int
 }
 
 func InitMain(c *TConfig) {

@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.0.3.21092717"
+	version = "v0.0.4.21100911"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
@@ -32,8 +32,8 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "HTTP(s) Reverse Proxy"
 	app.Usage = "HTTP/HTTPS 反向代理"
-	app.UsageText = "- 支持同时监听 HTTP/HTTPS, 指定或使用默认证书\n   - 支持后端服务负载均衡\n   - 示例: " +
-		"./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2"
+	app.UsageText = "- 支持同时监听 HTTP/HTTPS, 指定或使用默认证书\n   - 支持后端服务负载均衡和限速\n   - 示例: " +
+		"./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50"
 	app.Version = version
 	app.Copyright = "https://github.com/fufuok/reverse-proxy"
 	app.Authors = []*cli.Author{
@@ -78,6 +78,21 @@ func main() {
 		&cli.StringFlag{
 			Name:  "key",
 			Usage: "指定 HTTPS 服务端私钥文件, 为空时使用内置私钥",
+		},
+		&cli.IntFlag{
+			Name:        "limitmode",
+			Usage:       "请求速率限制模式: 0 按请求 IP 限制(默认), 1 全局限制, 不分 IP",
+			Destination: &conf.LimitMode,
+		},
+		&cli.IntFlag{
+			Name:        "limit",
+			Usage:       "限制每秒允许的请求数, 0 表示不限制(默认)",
+			Destination: &conf.Limit,
+		},
+		&cli.IntFlag{
+			Name:        "burst",
+			Usage:       "允许的突发请求数, 如: -limit=30 -burst=50 (每秒 30 请求, 允许突发 50 请求)",
+			Destination: &conf.Burst,
 		},
 		&cli.IntFlag{
 			Name:        "lb",
