@@ -15,6 +15,7 @@
   - `-limitmode=1` 全局限流, 不分 IP, 默认为按 IP 分别限流
   - `-limit=30` 限制每秒 30 个请求
   - `-burst=50` 允许突发 50 个请求
+- 支持 HTTP/HTTPS 端口转发, 自适应 `Host`, 示例: `-F=协议://0.0.0.0:端口`
 - 需要 HTTPS 时可选指定证书和私钥, 不指定时使用内置证书
 
 ## 使用
@@ -42,12 +43,14 @@ NAME:
    HTTP(s) Reverse Proxy - HTTP/HTTPS 反向代理
 
 USAGE:
-   - 支持同时监听 HTTP/HTTPS, 指定或使用默认证书
-   - 支持后端服务负载均衡和限速
-   - 示例: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50
+   - 支持同时监听 HTTP/HTTPS (指定或使用默认证书)
+   - 支持后端服务负载均衡 (5 种模式)
+   - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
+   - 简单: ./rproxy -debug -F=https://www.baidu.com
+   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50
 
 VERSION:
-   v0.0.4.21100911
+   v0.0.5.21101010
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -205,7 +208,27 @@ COPYRIGHT:
    1009 11:11:19 INF > 限制每秒请求数:=10000 最大突发请求数:=15000 限流器:="GlobalRateLimiter" 
    ```
 
-9. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
+9. 多域名多服务时可以使用端口转发, 简单示例:
+
+   本地提供了不同域名的端口服务: `http://a.cn:777` `http://b.cn:777`, 对外提供统一服务: `http://相应域名:对外服务端口` 
+
+   ```shell
+   ./rproxy -debug -L=:666 -F=http://0.0.0.0:777
+   1010 18:18:56 INF > 反向代理已启动:=["http://:666"] 
+   1010 18:18:56 INF > 转发到后端地址:=["http://0.0.0.0:777"] 负载均衡:="WeightedRoundRobin" 
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 200 OK
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/v/css/ff.css" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 200 OK
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/favicon.ico" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 404 Not Found
+   1010 18:19:26 INF > client_ip="127.0.0.1:52804" method="POST" original_host="xy.oa:666" host="xy.oa:777" uri="/process/save/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.oa:777" 200 OK
+   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" host="xy.uni:777" uri="/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.uni:777" 302 Found
+   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" host="xy.uni:777" uri="/login/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.uni:777" 200 OK
+   ```
+
+   代理会自动处理域名, 用对应的域名和转发端口去请求真实内容
+
+   当然, 如果某域名对应的服务在其他服务器, 可以写个本地 HOSTS 让反向代理自身通过域名能访问到指定服务
+
+10. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
 
 
 

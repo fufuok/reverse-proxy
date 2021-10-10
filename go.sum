@@ -4,8 +4,8 @@ github.com/cpuguy83/go-md2man/v2 v2.0.1 h1:r/myEWzV9lfsM1tFLgDyu0atFtJ1fXn261LKY
 github.com/cpuguy83/go-md2man/v2 v2.0.1/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/fufuok/balancer v0.0.1 h1:NVG/CR4Xgi0BD3awGT5+RZbspozZlUvuVtIYCJK0GlU=
 github.com/fufuok/balancer v0.0.1/go.mod h1:dHZPH7cA83p44nr87GG3azPD79Ub0K9BWFMjnz8SZCk=
-github.com/fufuok/utils v0.3.1 h1:PONieJ0W1QUHyrTwODDFDUwmI+OdfXwQfNEpa2uHcwI=
-github.com/fufuok/utils v0.3.1/go.mod h1:EyC9Mer4dGtk3wM0JK0IzmufZE3LTL28yqf9iGLyvjg=
+github.com/fufuok/utils v0.3.2 h1:3kt30Sh6aN4GNv4JVRfGbbf6v7O8lP2d0BZt5olNx6w=
+github.com/fufuok/utils v0.3.2/go.mod h1:fhB97845Gmqy6oMiKu3GlmUUb7mp4K5DeRwH7DCwjWU=
 github.com/phuslu/log v1.0.75 h1:2Qcqgwo1sOsvj7QIuclIS92hmWxIISI2+XskYM1Nw2A=
 github.com/phuslu/log v1.0.75/go.mod h1:kzJN3LRifrepxThMjufQwS7S35yFAB+jAV1qgA7eBW4=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

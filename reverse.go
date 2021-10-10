@@ -5,7 +5,10 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
+	"strings"
 
+	"github.com/fufuok/utils"
 	"github.com/phuslu/log"
 
 	"github.com/fufuok/balancer"
@@ -25,25 +28,18 @@ type tReverseProxy struct {
 	Host string
 }
 
-func NewReverseProxy() (proxy *tReverseProxy) {
+func NewReverseProxy() *tReverseProxy {
 	return &tReverseProxy{
-		LB:   balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
-		Host: conf.Host,
+		LB:             balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
+		ModifyResponse: defaultModifyResponse,
+		ErrorHandler:   defaultErrorHandler,
+		Host:           conf.Host,
 	}
 }
 
 func (p *tReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// 后端服务负载均衡
-	backend := p.LB.Select(r.RemoteAddr)
-	target := conf.Backend[backend]
-
-	if p.ModifyResponse == nil {
-		p.ModifyResponse = p.defaultModifyResponse
-	}
-
-	if p.ErrorHandler == nil {
-		p.ErrorHandler = p.defaultErrorHandler
-	}
+	target := p.lb(r)
+	r.Header.Set(ProxyPassHeader, target.String())
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
@@ -62,7 +58,6 @@ func (p *tReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Host == "" {
 			r.Host = target.Host
 		}
-		r.Header.Set(ProxyPassHeader, target.String())
 	}
 
 	proxy.ModifyResponse = p.ModifyResponse
@@ -87,22 +82,55 @@ func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) erro
 	return s.ListenAndServeTLS("", "")
 }
 
-func (p *tReverseProxy) defaultModifyResponse(r *http.Response) error {
-	target := r.Request.Header.Get(ProxyPassHeader)
+// 后端服务负载均衡
+func (p *tReverseProxy) lb(r *http.Request) *url.URL {
+	backend := p.LB.Select(r.RemoteAddr)
+	svr := conf.Backend[backend]
+
+	r.Header.Set(OriginalHostHeader, r.Host)
+	r.Header.Set(ProxyBackendHeader, backend)
+
+	// 处理 HTTP 端口转发
+	if strings.HasPrefix(svr.Host, "0.0.0.0:") {
+		return &url.URL{
+			Scheme:      svr.Scheme,
+			Opaque:      svr.Opaque,
+			User:        svr.User,
+			Host:        utils.ReplaceHost(svr.Host, r.Host),
+			Path:        svr.Path,
+			RawPath:     svr.RawPath,
+			ForceQuery:  svr.ForceQuery,
+			RawQuery:    svr.RawQuery,
+			Fragment:    svr.Fragment,
+			RawFragment: svr.RawFragment,
+		}
+	}
+
+	return svr
+}
+
+func defaultModifyResponse(resp *http.Response) error {
+	originalHost := resp.Request.Header.Get(OriginalHostHeader)
+	backend := resp.Request.Header.Get(ProxyBackendHeader)
+	target := resp.Request.Header.Get(ProxyPassHeader)
 	if conf.Debug {
-		r.Header.Set(ProxyPassHeader, target)
+		resp.Header.Set(OriginalHostHeader, originalHost)
+		resp.Header.Set(ProxyBackendHeader, backend)
+		resp.Header.Set(ProxyPassHeader, target)
 	}
 	log.Info().
-		Str("client_ip", r.Request.RemoteAddr).
-		Str("method", r.Request.Method).
-		Str("host", r.Request.Host).
-		Str("uri", r.Request.RequestURI).
+		Str("client_ip", resp.Request.RemoteAddr).
+		Str("method", resp.Request.Method).
+		Str("original_host", originalHost).
+		Str("host", resp.Request.Host).
+		Str("uri", resp.Request.RequestURI).
+		Str("proxy_backend", backend).
 		Str("proxy_pass", target).
-		Msg(r.Status)
+		Msg(resp.Status)
 	return nil
 }
 
-func (p *tReverseProxy) defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
+func defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 	// connection unexpectedly closed by client
 	if err == context.Canceled {
 		return

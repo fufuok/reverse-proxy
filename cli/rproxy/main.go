@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.0.4.21100911"
+	version = "v0.0.5.21101010"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
@@ -29,11 +29,20 @@ var (
 )
 
 func main() {
+	if err := newApp().Run(os.Args); err != nil {
+		log.Fatalln(err, "\nbye.")
+	}
+}
+
+func newApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "HTTP(s) Reverse Proxy"
 	app.Usage = "HTTP/HTTPS 反向代理"
-	app.UsageText = "- 支持同时监听 HTTP/HTTPS, 指定或使用默认证书\n   - 支持后端服务负载均衡和限速\n   - 示例: " +
-		"./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.1.1.1:12345,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50"
+	app.UsageText = `- 支持同时监听 HTTP/HTTPS (指定或使用默认证书)
+   - 支持后端服务负载均衡 (5 种模式)
+   - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
+   - 简单: ./rproxy -debug -F=https://www.baidu.com
+   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50`
 	app.Version = version
 	app.Copyright = "https://github.com/fufuok/reverse-proxy"
 	app.Authors = []*cli.Author{
@@ -42,7 +51,13 @@ func main() {
 			Email: "fufuok.com",
 		},
 	}
-	app.Flags = []cli.Flag{
+	app.Flags = appFlags()
+	app.Action = appAction()
+	return app
+}
+
+func appFlags() []cli.Flag {
+	return []cli.Flag{
 		&cli.BoolFlag{
 			Name:        "debug",
 			Usage:       "调试模式, 控制台输出日志",
@@ -111,7 +126,10 @@ func main() {
 			Required: true,
 		},
 	}
-	app.Action = func(c *cli.Context) error {
+}
+
+func appAction() func(c *cli.Context) error {
+	return func(c *cli.Context) error {
 		// 日志目录
 		_ = os.Mkdir(rproxy.LogDir, os.ModePerm)
 
@@ -152,10 +170,6 @@ func main() {
 		rproxy.Start()
 
 		return nil
-	}
-
-	if err := app.Run(os.Args); err != nil {
-		log.Fatalln(err, "\nbye.")
 	}
 }
 

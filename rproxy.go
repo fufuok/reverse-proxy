@@ -11,7 +11,13 @@ const (
 	// APPName 应用名称, 用于日志文件名
 	APPName = "rproxy"
 
-	// ProxyPassHeader 头信息记录请求的后端地址, 用于调试和日志
+	// OriginalHostHeader 用户端请求的主机地址, 用于调试和日志
+	OriginalHostHeader = "X-Original-Host"
+
+	// ProxyBackendHeader 头信息记录负载均衡选中的后端地址, 用于调试和日志
+	ProxyBackendHeader = "X-Proxy-Backend"
+
+	// ProxyPassHeader 头信息记录请求的转发地址, 用于调试和日志
 	ProxyPassHeader = "X-Proxy-Pass"
 )
 
