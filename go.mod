@@ -3,7 +3,7 @@ module github.com/fufuok/reverse-proxy
 go 1.17
 
 require (
-	github.com/fufuok/balancer v0.0.1
+	github.com/fufuok/balancer v0.0.3
 	github.com/fufuok/utils v0.3.2
 	github.com/phuslu/log v1.0.75
 	github.com/urfave/cli/v2 v2.3.0

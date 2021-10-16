@@ -2,8 +2,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
 github.com/cpuguy83/go-md2man/v2 v2.0.1 h1:r/myEWzV9lfsM1tFLgDyu0atFtJ1fXn261LKYj/3DxU=
 github.com/cpuguy83/go-md2man/v2 v2.0.1/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
-github.com/fufuok/balancer v0.0.1 h1:NVG/CR4Xgi0BD3awGT5+RZbspozZlUvuVtIYCJK0GlU=
-github.com/fufuok/balancer v0.0.1/go.mod h1:dHZPH7cA83p44nr87GG3azPD79Ub0K9BWFMjnz8SZCk=
+github.com/fufuok/balancer v0.0.3 h1:FjluMIo4e0qI6WZSEm45pUGW6ZbJoehBvVTerYyPSLM=
+github.com/fufuok/balancer v0.0.3/go.mod h1:dHZPH7cA83p44nr87GG3azPD79Ub0K9BWFMjnz8SZCk=
 github.com/fufuok/utils v0.3.2 h1:3kt30Sh6aN4GNv4JVRfGbbf6v7O8lP2d0BZt5olNx6w=
 github.com/fufuok/utils v0.3.2/go.mod h1:fhB97845Gmqy6oMiKu3GlmUUb7mp4K5DeRwH7DCwjWU=
 github.com/phuslu/log v1.0.75 h1:2Qcqgwo1sOsvj7QIuclIS92hmWxIISI2+XskYM1Nw2A=

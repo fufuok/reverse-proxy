@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.0.5.21101010"
+	version = "v0.0.6.21101016"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
@@ -39,10 +39,10 @@ func newApp() *cli.App {
 	app.Name = "HTTP(s) Reverse Proxy"
 	app.Usage = "HTTP/HTTPS 反向代理"
 	app.UsageText = `- 支持同时监听 HTTP/HTTPS (指定或使用默认证书)
-   - 支持后端服务负载均衡 (5 种模式)
+   - 支持后端服务负载均衡 (6 种模式)
    - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
    - 简单: ./rproxy -debug -F=https://www.baidu.com
-   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50`
+   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50`
 	app.Version = version
 	app.Copyright = "https://github.com/fufuok/reverse-proxy"
 	app.Authors = []*cli.Author{
@@ -111,7 +111,7 @@ func appFlags() []cli.Flag {
 		},
 		&cli.IntFlag{
 			Name:        "lb",
-			Usage:       "负载均衡算法: 0 加权轮询(默认), 1 平滑加权轮询, 2 IP哈希, 3 轮询, 4 随机",
+			Usage:       "负载均衡: 0 加权轮询(默认), 1 平滑加权轮询, 2 加权随机, 3 IP哈希, 4 轮询, 5 随机",
 			Destination: &conf.LBMode,
 		},
 		&cli.StringSliceFlag{
