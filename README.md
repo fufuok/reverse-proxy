@@ -6,9 +6,10 @@
 - 支持指定负载均衡: 
   - `-lb=0` `WeightedRoundRobin` 加权轮询(默认) 
   - `-lb=1` `SmoothWeightedRoundRobin` 平滑加权轮询
-  - `-lb=2` `ConsistentHash` IP一致性哈希
-  - `-lb=3` `RoundRobin` 轮询
-  - `-lb=4` `Random` 随机
+  - `-lb=2` `WeightedRand` 加权随机
+  - `-lb=3` `ConsistentHash` IP一致性哈希
+  - `-lb=4` `RoundRobin` 轮询
+  - `-lb=5` `Random` 随机
   - [github.com/fufuok/balancer: Goroutine-safe, High-performance general load balancing algorithm library.](https://github.com/fufuok/balancer)
 - 支持指定请求主机头: `Host`
 - 支持按 IP 限流或全局限流:
@@ -44,13 +45,13 @@ NAME:
 
 USAGE:
    - 支持同时监听 HTTP/HTTPS (指定或使用默认证书)
-   - 支持后端服务负载均衡 (5 种模式)
+   - 支持后端服务负载均衡 (6 种模式)
    - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
    - 简单: ./rproxy -debug -F=https://www.baidu.com
-   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=2 -limit=30 -burst=50
+   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50
 
 VERSION:
-   v0.0.5.21101010
+   v0.0.6.21101016
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -69,7 +70,7 @@ GLOBAL OPTIONS:
    --limitmode value     请求速率限制模式: 0 按请求 IP 限制(默认), 1 全局限制, 不分 IP (default: 0)
    --limit value         限制每秒允许的请求数, 0 表示不限制(默认) (default: 0)
    --burst value         允许的突发请求数, 如: -limit=30 -burst=50 (每秒 30 请求, 允许突发 50 请求) (default: 0)
-   --lb value            负载均衡算法: 0 加权轮询(默认), 1 平滑加权轮询, 2 IP哈希, 3 轮询, 4 随机 (default: 0)
+   --lb value            负载均衡: 0 加权轮询(默认), 1 平滑加权轮询, 2 加权随机, 3 IP哈希, 4 轮询, 5 随机 (default: 0)
    -F value              后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8
    -L value              本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555 (default: ":7777")
    --help, -h            show help (default: false)
@@ -188,9 +189,9 @@ COPYRIGHT:
 
 7. 负载均衡默认为高性能平滑加权重轮询 (WRR)
 
-   可以用 `-lb=2` 来指定一致性哈希算法, 相同客户端 IP 的所有请求均会转发到同一后端服务
+   可以用 `-lb=3` 来指定一致性哈希算法, 相同客户端 IP 的所有请求均会转发到同一后端服务
 
-   `./rproxy -debug -F=http://1.1.1.1:9001 -F=http://1.1.1.1:9002 -F=http://1.1.1.2 -host=ff.cn -lb=2`
+   `./rproxy -debug -F=http://1.1.1.1:9001 -F=http://1.1.1.1:9002 -F=http://1.1.1.2 -host=ff.cn -lb=3`
 
 8. 默认不限流转发, `-limit` `-burst` 都大于 0 时会启动限流
 
