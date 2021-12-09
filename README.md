@@ -51,7 +51,7 @@ USAGE:
    - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50
 
 VERSION:
-   v0.0.6.21101016
+   v0.0.7.21120912
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -92,10 +92,10 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -F=https://www.baidu.com
-   0915 09:51:56 INF > 反向代理已启动:=["http://:7777"] 
-   0915 09:51:56 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
-   0915 09:52:12 INF > client_ip="127.0.0.1:64874" method="GET" host="www.baidu.com" uri="/s?ie=utf-8&wd=xunyou" proxy_pass="https://www.baidu.com" 200 OK
-   0915 09:52:15 INF > client_ip="127.0.0.1:64874" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:03:54 INF > 反向代理已启动:=["http://:7777"]
+   1209 14:03:54 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
+   1209 14:04:14 INF > client_ip="127.0.0.1:63983" method="GET" original_host="127.0.0.1:7777" uri="/s?ie=utf-8&wd=xunyou" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:04:16 INF > client_ip="127.0.0.1:63983" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    ```
    
 
@@ -111,17 +111,19 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:555 -F=http://192.168.1.100:7777
-   0915 09:57:32 INF > client_ip="192.168.1.100:63125" method="GET" host="192.168.1.100:7777" uri="/s?ie=utf-8&wd=golang" proxy_pass="http://192.168.1.100:7777" 200 OK
-   0915 09:57:34 INF > client_ip="192.168.1.100:63125" method="GET" host="192.168.1.100:7777" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.100:7777" 200 OK
-   0915 09:57:36 INF > client_ip="192.168.1.100:63125" method="GET" host="192.168.1.100:7777" uri="/favicon.ico" proxy_pass="http://192.168.1.100:7777" 200 OK
+   1209 14:06:49 INF > 反向代理已启动:=["http://:555"] 
+   1209 14:06:49 INF > 转发到后端地址:=["http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin" 
+   1209 14:07:03 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/s?ie=utf-8&wd=golang" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
+   1209 14:07:04 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/sugrec?prod..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
+   1209 14:07:04 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/favicon.ico" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
    ```
-   
-   **1.100** 控制台日志:
 
+   **1.100** 控制台日志:
+   
    ```shell
-   0915 09:57:31 INF > client_ip="192.168.1.13:48052" method="GET" host="www.baidu.com" uri="/s?ie=utf-8&wd=golang" proxy_pass="https://www.baidu.com" 200 OK
-   0915 09:57:34 INF > client_ip="192.168.1.13:48054" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
-   0915 09:57:35 INF > client_ip="192.168.1.13:48056" method="GET" host="www.baidu.com" uri="/favicon.ico" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:07:03 INF > client_ip="192.168.1.13:60744" method="GET" original_host="192.168.1.100:7777" uri="/s?ie=utf-8&wd=golang" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:07:04 INF > client_ip="192.168.1.13:60744" method="GET" original_host="192.168.1.100:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:07:04 INF > client_ip="192.168.1.13:60744" method="GET" original_host="192.168.1.100:7777" uri="/favicon.ico" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    ```
    
 3. 可以转发到多个后端服务
@@ -133,17 +135,15 @@ COPYRIGHT:
       浏览器访问 `http://127.0.0.1:888/s?ie=utf-8&wd=fufuok` 就可以看到转发地址按权重均衡了
       
       ```shell
-      ./rproxy -debug -L=:888 -F=http://192.168.1.13:555 -F=http://192.168.1.100:7777,3
-      0915 09:59:29 INF > 反向代理已启动:=["http://:888"]
-      0915 09:59:29 INF > 转发到后端地址:=["http://192.168.1.13:555","http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin"
-      0915 09:59:43 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/s?ie=utf-8&wd=fufuok" proxy_pass="http://192.168.1.100:7777" 200 OK
-      0915 09:59:45 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.13:555" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.13:555" 200 OK
-      0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/" proxy_pass="http://192.168.1.100:7777" 200 OK
-      0915 10:00:36 INF > client_ip="127.0.0.1:62919" method="GET" host="192.168.1.100:7777" uri="/sugrec?prod=..." proxy_pass="http://192.168.1.100:7777" 200 OK
-      0915 10:00:36 INF > client_ip="127.0.0.1:59369" method="GET" host="192.168.1.100:7777" uri="/content-search.xml" proxy_pass="http://192.168.1.100:7777" 200 OK
+      ./rproxy -debug -L=:888 -F=http://192.168.1.13:555 -F=http://192.168.1.100:7777,2
+      1209 14:13:08 INF > 反向代理已启动:=["http://:888"]
+      1209 14:13:08 INF > 转发到后端地址:=["http://192.168.1.13:555","http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin"
+      1209 14:13:17 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/s?ie=utf-8&wd=fufuok" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
+      1209 14:13:17 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/sugrec?prod=..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.13:555" 200 OK
+      1209 14:13:40 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/sugrec?pre=..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
       ```
       
-
+   
 4. 可以指定请求主机头, 一般转发到 IP 时都最好指定 Host 参数
 
    **注意: 非 80/443 端口时, 主机头需要加上端口:**
@@ -154,13 +154,15 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -F=https://14.215.177.39,3 -F=https://14.215.177.38,2 -F=https://220.181.38.150 -host=www.baidu.com
-   0915 10:02:03 INF > 反向代理已启动:=["http://:7777"]
-   0915 10:02:03 INF > 转发到后端地址:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 负载均衡:="WeightedRoundRobin"
-   0915 10:02:03 INF > Host:="www.baidu.com" 请求时替换主机头
-   0915 10:02:27 INF > client_ip="127.0.0.1:59224" method="GET" host="www.baidu.com" uri="/" proxy_pass="https://14.215.177.39" 200 OK
-   0915 10:02:27 INF > client_ip="127.0.0.1:59224" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://14.215.177.38" 200 OK
-   0915 10:02:27 INF > client_ip="127.0.0.1:63963" method="GET" host="www.baidu.com" uri="/content-search.xml" proxy_pass="https://14.215.177.39" 200 OK
-   0915 10:02:48 INF > client_ip="127.0.0.1:63963" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://220.181.38.150" 200 OK
+   1209 13:35:35 INF > 反向代理已启动:=["http://:7777"]
+   1209 13:35:35 INF > 转发到后端地址:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 负载均衡:="WeightedRoundRobin"
+   1209 13:35:35 INF > Host:="www.baidu.com" 请求时替换主机头
+   1209 13:35:44 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/" proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
+   1209 13:35:44 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
+   1209 13:35:45 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/content-search.xml" proxy_host="www.baidu.com" proxy_pass="https://14.215.177.38" 200 OK
+   1209 13:35:47 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
+   1209 13:35:52 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://14.215.177.38" 200 OK
+   1209 13:35:54 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?pre=..." proxy_host="www.baidu.com" proxy_pass="https://220.181.38.150" 200 OK
    ```
 
 5. 也可以同时监听多个本地端口, 即多个 `-L=:nnn`
@@ -173,11 +175,11 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:7777 -L=https://:555 -F=https://www.baidu.com
-   0915 10:06:22 INF > 反向代理已启动:=["http://:7777","https://:555"]
-   0915 10:06:22 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
-   0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/" proxy_pass="https://www.baidu.com" 200 OK
-   0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/sugrec?prod=..." proxy_pass="https://www.baidu.com" 200 OK
-   0915 10:06:45 INF > client_ip="127.0.0.1:64279" method="GET" host="www.baidu.com" uri="/content-search.xml" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:16:04 INF > 反向代理已启动:=["http://:7777","https://:555"]
+   1209 14:16:04 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
+   1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
+   1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/content-search.xml" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    ```
 
    浏览器访问 `https://127.0.0.1:555/` 就能打开百度, 控制台可以看到上面的日志
@@ -211,18 +213,18 @@ COPYRIGHT:
 
 9. 多域名多服务时可以使用端口转发, 简单示例:
 
-   本地提供了不同域名的端口服务: `http://a.cn:777` `http://b.cn:777`, 对外提供统一服务: `http://相应域名:对外服务端口` 
+   本地提供了不同域名的端口服务: `http://a.cn:777` `http://b.cn:777`, 对外提供统一服务: `http://相应域名:对外服务端口`, 如对外提供访问: `http://a.cn:666` 
 
    ```shell
    ./rproxy -debug -L=:666 -F=http://0.0.0.0:777
    1010 18:18:56 INF > 反向代理已启动:=["http://:666"] 
    1010 18:18:56 INF > 转发到后端地址:=["http://0.0.0.0:777"] 负载均衡:="WeightedRoundRobin" 
-   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 200 OK
-   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/v/css/ff.css" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 200 OK
-   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" host="ff.php:777" uri="/favicon.ico" proxy_backend="http://0.0.0.0:777" proxy_pass="http://ff.php:777" 404 Not Found
-   1010 18:19:26 INF > client_ip="127.0.0.1:52804" method="POST" original_host="xy.oa:666" host="xy.oa:777" uri="/process/save/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.oa:777" 200 OK
-   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" host="xy.uni:777" uri="/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.uni:777" 302 Found
-   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" host="xy.uni:777" uri="/login/" proxy_backend="http://0.0.0.0:777" proxy_pass="http://xy.uni:777" 200 OK
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 200 OK
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/v/css/ff.css" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 200 OK
+   1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/favicon.ico" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 404 Not Found
+   1010 18:19:26 INF > client_ip="127.0.0.1:52804" method="POST" original_host="xy.oa:666" uri="/process/save/" proxy_host="xy.oa:777" proxy_pass="http://0.0.0.0:777" 200 OK
+   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" uri="/" proxy_host="xy.uni:777" proxy_pass="http://0.0.0.0:777" 302 Found
+   1010 18:19:28 INF > client_ip="127.0.0.1:54262" method="GET" original_host="xy.uni:666" uri="/login/" proxy_host="xy.uni:777" proxy_pass="http://0.0.0.0:777" 200 OK
    ```
 
    代理会自动处理域名, 用对应的域名和转发端口去请求真实内容

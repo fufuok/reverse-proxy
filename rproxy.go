@@ -14,10 +14,7 @@ const (
 	// OriginalHostHeader 用户端请求的主机地址, 用于调试和日志
 	OriginalHostHeader = "X-Original-Host"
 
-	// ProxyBackendHeader 头信息记录负载均衡选中的后端地址, 用于调试和日志
-	ProxyBackendHeader = "X-Proxy-Backend"
-
-	// ProxyPassHeader 头信息记录请求的转发地址, 用于调试和日志
+	// ProxyPassHeader 头信息记录负载均衡选中的转发地址, 用于调试和日志
 	ProxyPassHeader = "X-Proxy-Pass"
 )
 
@@ -25,7 +22,9 @@ const (
 func Start() {
 	var wg sync.WaitGroup
 
+	// 设置限流器
 	limiter = NewRateLimiter()
+	// 实例化后端代理
 	rproxy := NewReverseProxy()
 
 	for _, l := range conf.Listen {

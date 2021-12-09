@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strings"
 
 	"github.com/fufuok/utils"
@@ -18,51 +17,54 @@ type tReverseProxy struct {
 	// 后端服务负载均衡器
 	LB balancer.Balancer
 
-	// 修改返回值方法
-	ModifyResponse func(*http.Response) error
-
-	// 错误处理方法
-	ErrorHandler func(http.ResponseWriter, *http.Request, error)
+	// 后端服务代理实例
+	BackendProxy map[string]*httputil.ReverseProxy
 
 	// 修改请求 Host
 	Host string
 }
 
 func NewReverseProxy() *tReverseProxy {
-	return &tReverseProxy{
-		LB:             balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
-		ModifyResponse: defaultModifyResponse,
-		ErrorHandler:   defaultErrorHandler,
-		Host:           conf.Host,
+	p := &tReverseProxy{
+		LB:   balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
+		Host: conf.Host,
 	}
+
+	// 初始化后端代理实例
+	p.BackendProxy = make(map[string]*httputil.ReverseProxy)
+	for u, target := range conf.Backend {
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		// 解决反代 HTTPS 时 x509: cannot validate certificate
+		proxy.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		// 替换请求主机头
+		isPortForwarding := strings.HasPrefix(target.Host, "0.0.0.0:")
+		director := proxy.Director
+		proxy.Director = func(r *http.Request) {
+			director(r)
+			if p.Host != "" {
+				r.Host = p.Host
+			} else if isPortForwarding {
+				// 处理端口转发, 多域名访问时替换为正确 Host
+				r.Host = utils.ReplaceHost(target.Host, r.Host)
+			} else {
+				r.Host = target.Host
+			}
+		}
+		proxy.ModifyResponse = defaultModifyResponse
+		proxy.ErrorHandler = defaultErrorHandler
+		p.BackendProxy[u] = proxy
+	}
+
+	return p
 }
 
 func (p *tReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	target := p.lb(r)
-	r.Header.Set(ProxyPassHeader, target.String())
-
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	// 解决反代 HTTPS 时 x509: cannot validate certificate
-	proxy.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-
-	// 替换请求主机头
-	director := proxy.Director
-	proxy.Director = func(r *http.Request) {
-		director(r)
-		r.Host = p.Host
-		if r.Host == "" {
-			r.Host = target.Host
-		}
-	}
-
-	proxy.ModifyResponse = p.ModifyResponse
-	proxy.ErrorHandler = p.ErrorHandler
-	proxy.ServeHTTP(w, r)
+	rp := p.lb(r)
+	rp.ServeHTTP(w, r)
 }
 
 // ListenAndServe 启动代理, 监听本地端口, HTTP
@@ -83,48 +85,29 @@ func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) erro
 }
 
 // 后端服务负载均衡
-func (p *tReverseProxy) lb(r *http.Request) *url.URL {
-	backend := p.LB.Select(r.RemoteAddr)
-	svr := conf.Backend[backend]
+func (p *tReverseProxy) lb(r *http.Request) *httputil.ReverseProxy {
+	u := p.LB.Select(r.RemoteAddr)
+	svr := p.BackendProxy[u]
 
 	r.Header.Set(OriginalHostHeader, r.Host)
-	r.Header.Set(ProxyBackendHeader, backend)
-
-	// 处理 HTTP 端口转发
-	if strings.HasPrefix(svr.Host, "0.0.0.0:") {
-		return &url.URL{
-			Scheme:      svr.Scheme,
-			Opaque:      svr.Opaque,
-			User:        svr.User,
-			Host:        utils.ReplaceHost(svr.Host, r.Host),
-			Path:        svr.Path,
-			RawPath:     svr.RawPath,
-			ForceQuery:  svr.ForceQuery,
-			RawQuery:    svr.RawQuery,
-			Fragment:    svr.Fragment,
-			RawFragment: svr.RawFragment,
-		}
-	}
+	r.Header.Set(ProxyPassHeader, u)
 
 	return svr
 }
 
 func defaultModifyResponse(resp *http.Response) error {
 	originalHost := resp.Request.Header.Get(OriginalHostHeader)
-	backend := resp.Request.Header.Get(ProxyBackendHeader)
 	target := resp.Request.Header.Get(ProxyPassHeader)
 	if conf.Debug {
 		resp.Header.Set(OriginalHostHeader, originalHost)
-		resp.Header.Set(ProxyBackendHeader, backend)
 		resp.Header.Set(ProxyPassHeader, target)
 	}
 	log.Info().
 		Str("client_ip", resp.Request.RemoteAddr).
 		Str("method", resp.Request.Method).
 		Str("original_host", originalHost).
-		Str("host", resp.Request.Host).
 		Str("uri", resp.Request.RequestURI).
-		Str("proxy_backend", backend).
+		Str("proxy_host", resp.Request.Host).
 		Str("proxy_pass", target).
 		Msg(resp.Status)
 	return nil
@@ -135,7 +118,6 @@ func defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 	if err == context.Canceled {
 		return
 	}
-
 	log.Error().Err(err).Msg("502 Bad Gateway")
 	w.WriteHeader(http.StatusBadGateway)
 }
