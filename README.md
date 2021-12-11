@@ -51,7 +51,7 @@ USAGE:
    - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50
 
 VERSION:
-   v0.0.7.21120912
+   v0.1.0.21121111
 
 AUTHOR:
    Fufu <fufuok.com>

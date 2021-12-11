@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.0.7.21120912"
+	version = "v0.1.0.21121111"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
