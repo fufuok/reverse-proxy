@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"strings"
 
+	"github.com/fufuok/bytespool"
 	"github.com/fufuok/utils"
 	"github.com/phuslu/log"
 
@@ -29,6 +30,9 @@ func NewReverseProxy() *tReverseProxy {
 		LB:   balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
 		Host: conf.Host,
 	}
+
+	// 使用字节数据缓冲池
+	bufPool := bytespool.NewBufPool(32 * 1024)
 
 	// 初始化后端代理实例
 	p.BackendProxy = make(map[string]*httputil.ReverseProxy)
@@ -54,8 +58,9 @@ func NewReverseProxy() *tReverseProxy {
 				r.Host = target.Host
 			}
 		}
-		proxy.ModifyResponse = defaultModifyResponse
+		proxy.BufferPool = bufPool
 		proxy.ErrorHandler = defaultErrorHandler
+		proxy.ModifyResponse = defaultModifyResponse
 		p.BackendProxy[u] = proxy
 	}
 
