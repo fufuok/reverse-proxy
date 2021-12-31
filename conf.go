@@ -27,21 +27,36 @@ type TConfig struct {
 	LogFile      string
 	ErrorLogFile string
 
-	Host string
+	// 全局指定的请求主机头域名, 可为空, 优先级低于为每个转发地址单独的指定
+	HostDomain string
 
 	Listen []*url.URL
 	LAddr  []string
 
-	BackendList []string
-	BackendMap  map[string]int
-	Backend     map[string]*url.URL
-	LBMode      int
+	// 按指定的请求主机头域名分类
+	Backend map[string]*TBackend
+	LBMode  int
 
 	Certificate tls.Certificate
 
 	LimitMode int
 	Limit     int
 	Burst     int
+}
+
+type TBackend struct {
+	LBList  []string
+	LBMap   map[string]int
+	UrlList []string
+	UrlHost map[string]*TUrlHost
+}
+
+type TUrlHost struct {
+	// 转发的后端服务地址
+	ProxyPass *url.URL
+
+	// 转发时指定的请求主机头
+	SpecifyHost string
 }
 
 func InitMain(c *TConfig) {

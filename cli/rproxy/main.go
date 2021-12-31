@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.1.0.21121111"
+	version = "v0.2.0.22010101"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
@@ -42,7 +42,8 @@ func newApp() *cli.App {
    - 支持后端服务负载均衡 (6 种模式)
    - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
    - 简单: ./rproxy -debug -F=https://www.baidu.com
-   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50`
+   - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50
+   - 复用: ./rproxy -debug -L=:80 -F=http://1.1.1.1 -F=http://2.2.2.2:666*f.cn,2 -F=http://3.3.3.3:777*f.cn -F=http://4.4.4.4*x.cn`
 	app.Version = version
 	app.Copyright = "https://github.com/fufuok/reverse-proxy"
 	app.Authors = []*cli.Author{
@@ -83,8 +84,8 @@ func appFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "host",
-			Usage:       "指定请求主机头, 非80/443时带上端口, -host=fufuok.com:999",
-			Destination: &conf.Host,
+			Usage:       "指定全局的请求主机头域名, 端口会自动补齐, -host=fufuok.com",
+			Destination: &conf.HostDomain,
 		},
 		&cli.StringFlag{
 			Name:  "cert",
@@ -116,7 +117,7 @@ func appFlags() []cli.Flag {
 		},
 		&cli.StringSliceFlag{
 			Name:     "F",
-			Usage:    "后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8",
+			Usage:    "后端服务地址, 可多个, -F=协议://地址:端口*主机头域名(可选),权重值(可选), -F=http://fufu.cn:666,8",
 			Required: true,
 		},
 		&cli.StringSliceFlag{
@@ -139,8 +140,8 @@ func appAction() func(c *cli.Context) error {
 			log.Fatalln("本地监听端口号有误\nbye.")
 		}
 
-		conf.BackendMap, conf.BackendList, conf.Backend = parseBackend(c.StringSlice("F"))
-		if len(conf.BackendList) == 0 {
+		conf.Backend = parseBackend(c.StringSlice("F"))
+		if len(conf.Backend) == 0 {
 			_ = cli.ShowAppHelp(c)
 			log.Fatalln("转发到后端服务地址列表有误\nbye.")
 		}
@@ -205,14 +206,47 @@ func parseListenAddr(ss []string) (listen []*url.URL, laddr []string) {
 }
 
 // 解析转发的后端服务地址
-func parseBackend(ss []string) (bMap map[string]int, bList []string, backend map[string]*url.URL) {
-	bMap = make(map[string]int)
-	backend = make(map[string]*url.URL)
+func parseBackend(ss []string) map[string]*rproxy.TBackend {
+	backend := make(map[string]*rproxy.TBackend)
+	host := ""
 	for _, s := range ss {
+		// 相同的端口, 访问不同的域名会转发到对应的地址和端口, 简化的 nginx 多网站配置
+		// -F=转发后端地址(ProxyPass)*指定主机头(HostDomain, 优先使用, 空表示默认服务),权重(Weighted)
+		// -L=:8080 -F=http://1.2.3.4:666*a.cn,5 -F=http://2.3.4.5:777*a.cn -F=https://b.cn,2
+		// -F=http://8.8.8.8:888 -host=c.cn
+		// > 绑定域名:="" 替换请求主机域名:="c.cn" 转发到后端地址:=["https://b.cn","http://8.8.8.8:888"]
+		// > 绑定域名:="a.cn" 替换请求主机域名:="a.cn" 转发到后端地址:=["http://1.2.3.4:666","http://2.3.4.5:777"]
+		// 访问: http://a.cn:8080 会在指定 HostDomain 为 a.cn 使用 666 777 端口的 2 个后端负载均衡
+		// 访问: http://x.cn:8080 会使用指定 HostDomain 为 c.cn 访问 888 或 b.cn
+		// 若不加全局主机头域名 `-host=c.cn` 参数, 则除访问 a.cn 外, 其他请求转发时不替换 HostDomain
 		x := strings.SplitN(s, ",", 2)
-		svr := strings.TrimSpace(x[0])
+		y := strings.SplitN(x[0], "*", 2)
+		svr := strings.TrimSpace(y[0])
 		if svr == "" {
 			continue
+		}
+
+		u, err := url.Parse(svr)
+		if err != nil || u.Host == "" {
+			continue
+		}
+
+		specifyHost := ""
+		host = ""
+		if strings.HasPrefix(u.Host, "0.0.0.0:") {
+			// 端口转发时自适应域名, 指定主机头无效
+			conf.HostDomain = ""
+		} else {
+			// 优先使用转发地址指定的主机头域名(*host), 默认为全局指定的主机头域名(-host), 或空
+			specifyHost = conf.HostDomain
+			if len(y) == 2 && y[1] != "" {
+				specifyHost = y[1]
+				host = y[1]
+			}
+			// 补齐主机头端口
+			if specifyHost != "" {
+				specifyHost = utils.ReplaceHost(svr, specifyHost)
+			}
 		}
 
 		w := 1
@@ -220,12 +254,34 @@ func parseBackend(ss []string) (bMap map[string]int, bList []string, backend map
 			w = utils.GetInt(x[1], 1)
 		}
 
-		if u, err := url.Parse(svr); err == nil && u.Host != "" {
-			k := u.String()
-			bMap[k] = w
-			bList = append(bList, k)
-			backend[k] = u
+		us := u.String()
+		f := joinString(host, us)
+		if backend[host] == nil {
+			backend[host] = &rproxy.TBackend{
+				LBMap:   make(map[string]int),
+				UrlHost: make(map[string]*rproxy.TUrlHost),
+			}
+		}
+		backend[host].LBMap[f] = w
+		backend[host].LBList = append(backend[host].LBList, f)
+		backend[host].UrlList = append(backend[host].UrlList, us)
+		backend[host].UrlHost[f] = &rproxy.TUrlHost{
+			ProxyPass:   u,
+			SpecifyHost: specifyHost,
 		}
 	}
-	return
+
+	// 默认配置
+	if _, ok := backend[rproxy.DefaultServer]; !ok {
+		if backend[host] == nil {
+			return nil
+		}
+		backend[rproxy.DefaultServer] = backend[host]
+	}
+
+	return backend
+}
+
+func joinString(a string, b ...string) string {
+	return utils.AddString(a, "*!*", utils.AddString(b...))
 }

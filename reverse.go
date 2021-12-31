@@ -16,59 +16,72 @@ import (
 
 type tReverseProxy struct {
 	// 后端服务负载均衡器
-	LB balancer.Balancer
+	LoadBalancer map[string]balancer.Balancer
 
 	// 后端服务代理实例
 	BackendProxy map[string]*httputil.ReverseProxy
-
-	// 修改请求 Host
-	Host string
 }
 
 func NewReverseProxy() *tReverseProxy {
-	p := &tReverseProxy{
-		LB:   balancer.New(balancer.Mode(conf.LBMode), conf.BackendMap, conf.BackendList),
-		Host: conf.Host,
+	lb := make(map[string]balancer.Balancer)
+	for h, v := range conf.Backend {
+		lb[h] = balancer.New(balancer.Mode(conf.LBMode), v.LBMap, v.LBList)
 	}
+	return &tReverseProxy{
+		LoadBalancer: lb,
+		BackendProxy: newBackendProxy(),
+	}
+}
 
+// 初始化后端代理实例
+func newBackendProxy() map[string]*httputil.ReverseProxy {
 	// 使用字节数据缓冲池
-	bufPool := bytespool.NewBufPool(32 * 1024)
-
-	// 初始化后端代理实例
-	p.BackendProxy = make(map[string]*httputil.ReverseProxy)
-	for u, target := range conf.Backend {
-		proxy := httputil.NewSingleHostReverseProxy(target)
-		// 解决反代 HTTPS 时 x509: cannot validate certificate
-		proxy.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		// 替换请求主机头
-		isPortForwarding := strings.HasPrefix(target.Host, "0.0.0.0:")
-		director := proxy.Director
-		proxy.Director = func(r *http.Request) {
-			director(r)
-			if p.Host != "" {
-				r.Host = p.Host
-			} else if isPortForwarding {
-				// 处理端口转发, 多域名访问时替换为正确 Host
-				r.Host = utils.ReplaceHost(target.Host, r.Host)
-			} else {
-				r.Host = target.Host
+	bsPool := bytespool.NewBufPool(32 * 1024)
+	backendProxy := make(map[string]*httputil.ReverseProxy)
+	for _, v := range conf.Backend {
+		for f, backend := range v.UrlHost {
+			proxy := httputil.NewSingleHostReverseProxy(backend.ProxyPass)
+			// 解决反代 HTTPS 时 x509: cannot validate certificate
+			proxy.Transport = &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			}
+			// 指定请求主机头
+			specifyHost := backend.SpecifyHost
+			urlHost := backend.ProxyPass.Host
+			target := backend.ProxyPass.String()
+			// 替换请求主机头
+			isPortForwarding := strings.HasPrefix(urlHost, "0.0.0.0:")
+			director := proxy.Director
+			proxy.Director = func(r *http.Request) {
+				r.Header.Set(OriginalHostHeader, r.Host)
+				r.Header.Set(ProxyPassHeader, target)
+				director(r)
+				if isPortForwarding {
+					// 处理端口转发, 多域名访问时替换为正确 HostDomain
+					r.Host = utils.ReplaceHost(urlHost, r.Host)
+				} else if specifyHost != "" {
+					r.Host = specifyHost
+				} else {
+					r.Host = urlHost
+				}
+			}
+			proxy.BufferPool = bsPool
+			proxy.ErrorHandler = defaultErrorHandler
+			proxy.ModifyResponse = defaultModifyResponse
+			backendProxy[f] = proxy
 		}
-		proxy.BufferPool = bufPool
-		proxy.ErrorHandler = defaultErrorHandler
-		proxy.ModifyResponse = defaultModifyResponse
-		p.BackendProxy[u] = proxy
 	}
-
-	return p
+	return backendProxy
 }
 
 func (p *tReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rp := p.lb(r)
+	if rp == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	rp.ServeHTTP(w, r)
 }
 
@@ -91,12 +104,16 @@ func (p *tReverseProxy) ListenAndServeTLS(laddr string, cf tls.Certificate) erro
 
 // 后端服务负载均衡
 func (p *tReverseProxy) lb(r *http.Request) *httputil.ReverseProxy {
-	u := p.LB.Select(r.RemoteAddr)
-	svr := p.BackendProxy[u]
-
-	r.Header.Set(OriginalHostHeader, r.Host)
-	r.Header.Set(ProxyPassHeader, u)
-
+	host, _ := utils.SplitHostPort(r.Host)
+	lb, ok := p.LoadBalancer[host]
+	if !ok {
+		lb, ok = p.LoadBalancer[DefaultServer]
+		if !ok {
+			return nil
+		}
+	}
+	f := lb.Select(r.RemoteAddr)
+	svr := p.BackendProxy[f]
 	return svr
 }
 
