@@ -31,6 +31,7 @@ func initLogger() {
 				MaxBackups:   7,
 				EnsureFolder: true,
 				LocalTime:    true,
+				ProcessID:    true,
 			},
 			ErrorWriter: &log.FileWriter{
 				Filename:     conf.ErrorLogFile,
@@ -39,6 +40,7 @@ func initLogger() {
 				MaxBackups:   30,
 				EnsureFolder: true,
 				LocalTime:    true,
+				ProcessID:    true,
 			},
 		},
 	}
