@@ -9,7 +9,7 @@ OPT_LOG=$(OPT_DIR)/log
 all: build
 
 build:
-	go build -v -o $(CI_BIN) cli/$(PROJECT)/main.go
+	go build -ldflags="-s -w" -v -o $(CI_BIN) cli/$(PROJECT)/main.go
 
 clean:
 	killall $(PROJECT) || true
