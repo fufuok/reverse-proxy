@@ -11,12 +11,13 @@
   - `-lb=4` `RoundRobin` 轮询
   - `-lb=5` `Random` 随机
   - [github.com/fufuok/balancer: Goroutine-safe, High-performance general load balancing algorithm library.](https://github.com/fufuok/balancer)
-- 支持指定请求主机头: `Host`
+- 支持指定请求主机头域名: `-host=orig.domain.com`
 - 支持按 IP 限流或全局限流:
   - `-limitmode=1` 全局限流, 不分 IP, 默认为按 IP 分别限流
   - `-limit=30` 限制每秒 30 个请求
   - `-burst=50` 允许突发 50 个请求
 - 支持 HTTP/HTTPS 端口转发, 自适应 `Host`, 示例: `-F=协议://0.0.0.0:端口`
+- 支持同端口绑定不同域名转发, 支持默认服务, 示例: `-F=http://1.1.1.1 -F=http://2.2.2.2:666*f.cn,2 -F=http://3.3.3.3:777*f.cn -F=http://4.4.4.4*x.cn`
 - 需要 HTTPS 时可选指定证书和私钥, 不指定时使用内置证书
 
 ## 使用
@@ -28,9 +29,8 @@
 ├── bin
 │   └── rproxy
 ├── log
-│   ├── rproxy.2021-09-15T12-00-00.log
 │   ├── rproxy.daemon.log
-│   └── rproxy.log -> rproxy.2021-09-15T12-00-00.log
+│   └── rproxy.2021-12-29T23-00-24.6580.log
 ```
 
 运行:
@@ -49,9 +49,10 @@ USAGE:
    - 支持 HTTP/HTTPS 端口转发 (-F=http://0.0.0.0:88 请求 http://f.cn:7777, 实际返回 http://f.cn:88 的请求结果)
    - 简单: ./rproxy -debug -F=https://www.baidu.com
    - 综合: ./rproxy -debug -L=:7777 -L=https://:555 -F=http://1.2.3.4:666,5 -F=https://ff.cn -lb=3 -limit=30 -burst=50
+   - 复用: ./rproxy -debug -L=:80 -F=http://1.1.1.1 -F=http://2.2.2.2:666*f.cn,2 -F=http://3.3.3.3:777*f.cn -F=http://4.4.4.4*x.cn
 
 VERSION:
-   v0.1.0.21121111
+   v0.2.0.22010101
 
 AUTHOR:
    Fufu <fufuok.com>
@@ -64,14 +65,14 @@ GLOBAL OPTIONS:
    --loglevel value      文件日志级别: debug, info, warn, error, fatal, panic (default: "info")
    --logfile value       日志文件位置 (default: "程序位置/../log/rproxy.log")
    --errorlogfile value  错误级别的日志文件位置 (default: "程序位置/../log/rproxy.error.log")
-   --host value          指定请求主机头, 非80/443时带上端口, -host=fufuok.com:999
+   --host value          指定全局的请求主机头域名, 端口会自动补齐, -host=fufuok.com
    --cert value          指定 HTTPS 服务端证书文件, 为空时使用内置证书
    --key value           指定 HTTPS 服务端私钥文件, 为空时使用内置私钥
    --limitmode value     请求速率限制模式: 0 按请求 IP 限制(默认), 1 全局限制, 不分 IP (default: 0)
    --limit value         限制每秒允许的请求数, 0 表示不限制(默认) (default: 0)
    --burst value         允许的突发请求数, 如: -limit=30 -burst=50 (每秒 30 请求, 允许突发 50 请求) (default: 0)
    --lb value            负载均衡: 0 加权轮询(默认), 1 平滑加权轮询, 2 加权随机, 3 IP哈希, 4 轮询, 5 随机 (default: 0)
-   -F value              后端服务地址, 可多个, -F=协议://地址:端口,权重值(可选), -F=http://fufu.cn:666,8
+   -F value              后端服务地址, 可多个, -F=协议://地址:端口*主机头域名(可选),权重值(可选), -F=http://fufu.cn:666,8
    -L value              本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555 (default: ":7777")
    --help, -h            show help (default: false)
    --version, -v         print the version (default: false)
@@ -92,8 +93,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -F=https://www.baidu.com
-   1209 14:03:54 INF > 反向代理已启动:=["http://:7777"]
-   1209 14:03:54 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
+   1209 14:03:54 INF > 反向代理已启动:=["http://:7777"] 负载均衡:="WeightedRoundRobin"
+   1209 14:03:54 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["https://www.baidu.com"]
    1209 14:04:14 INF > client_ip="127.0.0.1:63983" method="GET" original_host="127.0.0.1:7777" uri="/s?ie=utf-8&wd=xunyou" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    1209 14:04:16 INF > client_ip="127.0.0.1:63983" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    ```
@@ -111,8 +112,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:555 -F=http://192.168.1.100:7777
-   1209 14:06:49 INF > 反向代理已启动:=["http://:555"] 
-   1209 14:06:49 INF > 转发到后端地址:=["http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin" 
+   1209 14:06:49 INF > 反向代理已启动:=["http://:555"] 负载均衡:="WeightedRoundRobin"
+   1209 14:06:49 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["http://192.168.1.100:7777"]
    1209 14:07:03 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/s?ie=utf-8&wd=golang" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
    1209 14:07:04 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/sugrec?prod..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
    1209 14:07:04 INF > client_ip="192.168.1.100:64044" method="GET" original_host="192.168.1.13:555" uri="/favicon.ico" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
@@ -136,27 +137,26 @@ COPYRIGHT:
       
       ```shell
       ./rproxy -debug -L=:888 -F=http://192.168.1.13:555 -F=http://192.168.1.100:7777,2
-      1209 14:13:08 INF > 反向代理已启动:=["http://:888"]
-      1209 14:13:08 INF > 转发到后端地址:=["http://192.168.1.13:555","http://192.168.1.100:7777"] 负载均衡:="WeightedRoundRobin"
+      1209 14:13:08 INF > 反向代理已启动:=["http://:888"] 负载均衡:="WeightedRoundRobin"
+      1209 14:13:08 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["http://192.168.1.13:555","http://192.168.1.100:7777"]
       1209 14:13:17 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/s?ie=utf-8&wd=fufuok" proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
       1209 14:13:17 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/sugrec?prod=..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.13:555" 200 OK
       1209 14:13:40 INF > client_ip="[::1]:64158" method="GET" original_host="127.0.0.1:888" uri="/sugrec?pre=..." proxy_host="192.168.1.100:7777" proxy_pass="http://192.168.1.100:7777" 200 OK
       ```
       
    
-4. 可以指定请求主机头, 一般转发到 IP 时都最好指定 Host 参数
+4. 可以指定请求主机头域名, 一般转发到 IP 时都最好指定 Host 参数
 
-   **注意: 非 80/443 端口时, 主机头需要加上端口:**
+   **注意: 指定域名即可, 可理解为回源域名, 程序会自动补全非 80/443 的端口:**
 
-   `./rproxy -debug -F=http://1.1.1.1 -F=http://2.2.2.2 -host=orign.fufuok.com:9001`
+   `./rproxy -debug -F=http://1.1.1.1 -F=http://2.2.2.2 -host=orign.fufuok.com`
 
    指定 Host 反代 HTTPS 示例:
 
    ```shell
    ./rproxy -debug -F=https://14.215.177.39,3 -F=https://14.215.177.38,2 -F=https://220.181.38.150 -host=www.baidu.com
-   1209 13:35:35 INF > 反向代理已启动:=["http://:7777"]
-   1209 13:35:35 INF > 转发到后端地址:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 负载均衡:="WeightedRoundRobin"
-   1209 13:35:35 INF > Host:="www.baidu.com" 请求时替换主机头
+   1209 13:35:35 INF > 反向代理已启动:=["http://:7777"] 负载均衡:="WeightedRoundRobin" 
+   1209 13:35:35 INF > 绑定域名:="" 替换请求主机域名:="www.baidu.com" 转发到后端地址:=["https://14.215.177.39","https://14.215.177.38","https://220.181.38.150"] 
    1209 13:35:44 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/" proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
    1209 13:35:44 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
    1209 13:35:45 INF > client_ip="127.0.0.1:52429" method="GET" original_host="127.0.0.1:7777" uri="/content-search.xml" proxy_host="www.baidu.com" proxy_pass="https://14.215.177.38" 200 OK
@@ -175,8 +175,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:7777 -L=https://:555 -F=https://www.baidu.com
-   1209 14:16:04 INF > 反向代理已启动:=["http://:7777","https://:555"]
-   1209 14:16:04 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin"
+   1209 14:16:04 INF > 反向代理已启动:=["http://:7777","https://:555"] 负载均衡:="WeightedRoundRobin" 
+   1209 14:16:04 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["https://www.baidu.com"] 
    1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/sugrec?prod=..." proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
    1209 14:16:18 INF > client_ip="127.0.0.1:64215" method="GET" original_host="127.0.0.1:555" uri="/content-search.xml" proxy_host="www.baidu.com" proxy_pass="https://www.baidu.com" 200 OK
@@ -206,9 +206,9 @@ COPYRIGHT:
    `./rproxy -debug -F=https://www.baidu.com -limitmode=1 -limit=10000 -burst=15000`
 
    ```shell
-   1009 11:11:19 INF > 反向代理已启动:=["http://:7777"] 
-   1009 11:11:19 INF > 转发到后端地址:=["https://www.baidu.com"] 负载均衡:="WeightedRoundRobin" 
-   1009 11:11:19 INF > 限制每秒请求数:=10000 最大突发请求数:=15000 限流器:="GlobalRateLimiter" 
+   1009 11:11:19 INF > 反向代理已启动:=["http://:7777"] 负载均衡:="WeightedRoundRobin"
+   1009 11:11:19 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["https://www.baidu.com"]
+   1009 11:11:19 INF > 限制每秒请求数:=10000 最大突发请求数:=15000 限流器:="GlobalRateLimiter"
    ```
 
 9. 多域名多服务时可以使用端口转发, 简单示例:
@@ -217,8 +217,8 @@ COPYRIGHT:
 
    ```shell
    ./rproxy -debug -L=:666 -F=http://0.0.0.0:777
-   1010 18:18:56 INF > 反向代理已启动:=["http://:666"] 
-   1010 18:18:56 INF > 转发到后端地址:=["http://0.0.0.0:777"] 负载均衡:="WeightedRoundRobin" 
+   1010 18:18:56 INF > 反向代理已启动:=["http://:666"] 负载均衡:="WeightedRoundRobin"
+   1010 18:18:56 INF > 绑定域名:="" 替换请求主机域名:="" 转发到后端地址:=["http://0.0.0.0:777"]
    1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 200 OK
    1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/v/css/ff.css" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 200 OK
    1010 18:19:12 INF > client_ip="127.0.0.1:49411" method="GET" original_host="ff.php:666" uri="/favicon.ico" proxy_host="ff.php:777" proxy_pass="http://0.0.0.0:777" 404 Not Found
@@ -230,6 +230,46 @@ COPYRIGHT:
    代理会自动处理域名, 用对应的域名和转发端口去请求真实内容
 
    当然, 如果某域名对应的服务在其他服务器, 可以写个本地 HOSTS 让反向代理自身通过域名能访问到指定服务
+
+10. 不同域名绑定不同的后端转发
+
+    类似 Nginx, 相同端口配置多个域名, 每个域名有个自的后端转发服务地址
+
+    ```shell
+    ./rproxy -debug -L=:7777 -L=:555 -F=https://14.215.177.39*www.baidu.com,3 -F=https://220.181.38.150*www.baidu.com -F=https://14.215.177.38 -host=baidu.com -F=https://180.97.125.228*gitee.com
+    1230 10:31:19 INF > 反向代理已启动:=["http://:7777","http://:555"] 负载均衡:="WeightedRoundRobin" 
+    1230 10:31:19 INF > 绑定域名:="www.baidu.com" 替换请求主机域名:="www.baidu.com" 转发到后端地址:=["https://14.215.177.39","https://220.181.38.150"] 
+    1230 10:31:19 INF > 绑定域名:="" 替换请求主机域名:="baidu.com" 转发到后端地址:=["https://14.215.177.38"] 
+    1230 10:31:19 INF > 绑定域名:="gitee.com" 替换请求主机域名:="gitee.com" 转发到后端地址:=["https://180.97.125.228"] 
+    1230 10:31:40 INF > client_ip="127.0.0.1:64981" method="HEAD" original_host="www.baidu.com:7777" uri="/" proxy_host="www.baidu.com" proxy_pass="https://14.215.177.39" 200 OK
+    1230 10:31:41 INF > client_ip="127.0.0.1:64983" method="HEAD" original_host="gitee.com:7777" uri="/" proxy_host="gitee.com" proxy_pass="https://180.97.125.228" 200 OK
+    1230 10:31:42 INF > client_ip="127.0.0.1:64985" method="HEAD" original_host="127.0.0.1:7777" uri="/" proxy_host="baidu.com" proxy_pass="https://14.215.177.38" 200 OK
+    1230 10:31:44 INF > client_ip="127.0.0.1:64988" method="HEAD" original_host="other-domain.com:7777" uri="/" proxy_host="baidu.com" proxy_pass="https://14.215.177.38" 200 OK
+    ```
+
+    测试请求:
+
+    ```shell
+    root@fufuok:~# curl -I http://www.baidu.com:7777 --resolve www.baidu.com:7777:127.0.0.1
+    HTTP/1.1 200 OK
+    X-Original-Host: www.baidu.com:7777
+    X-Proxy-Pass: https://14.215.177.39
+    
+    root@fufuok:~# curl -I http://gitee.com:7777 --resolve gitee.com:7777:127.0.0.1
+    HTTP/1.1 200 OK
+    X-Original-Host: gitee.com:7777
+    X-Proxy-Pass: https://180.97.125.228
+    
+    root@fufuok:~# curl -I http://127.0.0.1:7777
+    HTTP/1.1 200 OK
+    X-Original-Host: 127.0.0.1:7777
+    X-Proxy-Pass: https://14.215.177.38
+    
+    root@fufuok:~# curl -I http://other-domain.com:7777 --resolve other-domain.com:7777:127.0.0.1
+    HTTP/1.1 200 OK
+    X-Original-Host: other-domain.com:7777
+    X-Proxy-Pass: https://14.215.177.38
+    ```
 
 10. 非调试模式时, 自动启动守护进程并后台运行, 日志记录会到文件
 
