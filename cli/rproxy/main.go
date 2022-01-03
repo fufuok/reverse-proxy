@@ -233,7 +233,7 @@ func parseBackend(ss []string) map[string]*rproxy.TBackend {
 
 		specifyHost := ""
 		host = ""
-		if strings.HasPrefix(u.Host, "0.0.0.0:") {
+		if rproxy.CheckPortForwarding(u.Host) {
 			// 端口转发时自适应域名, 指定主机头无效
 			conf.HostDomain = ""
 		} else {

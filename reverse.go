@@ -52,7 +52,7 @@ func newBackendProxy() map[string]*httputil.ReverseProxy {
 			urlHost := backend.ProxyPass.Host
 			target := backend.ProxyPass.String()
 			// 替换请求主机头
-			isPortForwarding := strings.HasPrefix(urlHost, "0.0.0.0:")
+			isPortForwarding := CheckPortForwarding(urlHost)
 			director := proxy.Director
 			proxy.Director = func(r *http.Request) {
 				r.Header.Set(OriginalHostHeader, r.Host)
@@ -142,4 +142,8 @@ func defaultErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
 	}
 	log.Error().Err(err).Msg("502 Bad Gateway")
 	w.WriteHeader(http.StatusBadGateway)
+}
+
+func CheckPortForwarding(host string) bool {
+	return strings.HasPrefix(host, "0.0.0.0:")
 }
