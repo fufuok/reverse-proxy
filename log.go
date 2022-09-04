@@ -1,12 +1,24 @@
 package rproxy
 
 import (
+	stdlog "log"
 	"time"
+	"unsafe"
 
 	"github.com/phuslu/log"
 )
 
+var rproxyLogger *stdlog.Logger
+
+type rproxyErrorWriter struct{}
+
+func (w rproxyErrorWriter) Write(p []byte) (n int, err error) {
+	log.Error().Msg(*(*string)(unsafe.Pointer(&p)))
+	return len(p), nil
+}
+
 func initLogger() {
+	rproxyLogger = stdlog.New(rproxyErrorWriter{}, "", 0)
 	if conf.Debug {
 		log.DefaultLogger = log.Logger{
 			Level:      log.ParseLevel(conf.LogLevel),

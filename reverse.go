@@ -41,6 +41,7 @@ func newBackendProxy() map[string]*httputil.ReverseProxy {
 	for _, v := range conf.Backend {
 		for f, backend := range v.UrlHost {
 			proxy := httputil.NewSingleHostReverseProxy(backend.ProxyPass)
+			proxy.ErrorLog = rproxyLogger
 			// 解决反代 HTTPS 时 x509: cannot validate certificate
 			proxy.Transport = &http.Transport{
 				TLSClientConfig: &tls.Config{
