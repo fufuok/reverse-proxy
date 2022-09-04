@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	version = "v0.2.0.22010101"
+	version = "v0.2.1.22090101"
 
 	// 全局配置项
 	conf = &rproxy.TConfig{}
@@ -121,10 +121,9 @@ func appFlags() []cli.Flag {
 			Required: true,
 		},
 		&cli.StringSliceFlag{
-			Name:     "L",
-			Value:    cli.NewStringSlice(":7777"),
-			Usage:    "本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555",
-			Required: true,
+			Name:  "L",
+			Value: cli.NewStringSlice(":7777"),
+			Usage: "本地监听端口号, 默认 HTTP, 可多个, -L=127.0.0.1:123 -L=https://:555",
 		},
 	}
 }
@@ -132,7 +131,7 @@ func appFlags() []cli.Flag {
 func appAction() func(c *cli.Context) error {
 	return func(c *cli.Context) error {
 		// 日志目录
-		_ = os.Mkdir(rproxy.LogDir, os.ModePerm)
+		_ = os.MkdirAll(rproxy.LogDir, os.ModePerm)
 
 		conf.Listen, conf.LAddr = parseListenAddr(c.StringSlice("L"))
 		if len(conf.Listen) == 0 {
