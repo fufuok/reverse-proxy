@@ -21,7 +21,7 @@ func initLogger() {
 	rproxyLogger = stdlog.New(rproxyErrorWriter{}, "", 0)
 	if conf.Debug {
 		log.DefaultLogger = log.Logger{
-			Level:      log.ParseLevel(conf.LogLevel),
+			Level:      log.DebugLevel,
 			TimeFormat: "0102 15:04:05",
 			Writer: &log.ConsoleWriter{
 				ColorOutput:    true,

@@ -1,8 +1,10 @@
 package rproxy
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -67,6 +69,14 @@ func newBackendProxy() map[string]*httputil.ReverseProxy {
 				} else {
 					r.Host = urlHost
 				}
+				if conf.Debug {
+					var body []byte
+					if r.ContentLength > 0 {
+						body, _ = io.ReadAll(r.Body)
+						r.Body = io.NopCloser(bytes.NewReader(body))
+					}
+					log.Debug().Str("url", r.URL.String()).Bytes("body", body).Msg("Request")
+				}
 			}
 			proxy.BufferPool = bsPool
 			proxy.ErrorHandler = defaultErrorHandler
@@ -124,6 +134,12 @@ func defaultModifyResponse(resp *http.Response) error {
 	if conf.Debug {
 		resp.Header.Set(OriginalHostHeader, originalHost)
 		resp.Header.Set(ProxyPassHeader, target)
+		var body []byte
+		if resp.ContentLength > 0 {
+			body, _ = io.ReadAll(resp.Body)
+			resp.Body = io.NopCloser(bytes.NewReader(body))
+		}
+		log.Debug().Str("url", resp.Request.URL.String()).Bytes("body", body).Msg("Response")
 	}
 	log.Info().
 		Str("client_ip", resp.Request.RemoteAddr).
